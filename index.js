@@ -62,18 +62,6 @@ async function run() {
       res.send({ token });
     });
 
-    // const verifyAdmin = async (req, res, next) => {
-    //   const email = req.decoded.email;
-    //   const query = { email: email };
-    //   const user = await usersCollection.findOne(query);
-    //   if (user?.role !== 'admin') {
-    //     return res
-    //       .status(403)
-    //       .send({ error: true, message: 'forbidden message' });
-    //   }
-    //   next();
-    // };
-
     // ---------------users related api
 
     // get users from database
@@ -94,7 +82,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch('/users/:id', async (req, res) => {
+    app.patch('/users/instructor/:id', async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updateDoc = {
@@ -124,7 +112,9 @@ async function run() {
       const id = req.params.id;
 
       try {
-        const result = await usersCollection.deleteOne({ _id: ObjectId(id) });
+        const result = await usersCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
         if (result.deletedCount === 1) {
           res.send({ message: 'User deleted successfully' });
         } else {
