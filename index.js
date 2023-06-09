@@ -1,23 +1,23 @@
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+
 const app = express();
 const port = process.env.PORT || 5000;
 
-// middleware
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// json web token
-
+// JSON web token
 const verifyJWT = (req, res, next) => {
   const authorization = req.headers.authorization;
   if (!authorization) {
     return res
       .status(401)
-      .send({ error: true, message: 'unauthorized access' });
+      .send({ error: true, message: 'Unauthorized access' });
   }
   const token = authorization.split(' ')[1];
 
@@ -25,34 +25,27 @@ const verifyJWT = (req, res, next) => {
     if (err) {
       return res
         .status(401)
-        .send({ error: true, message: 'unauthorized access' });
+        .send({ error: true, message: 'Unauthorized access' });
     }
     req.decoded = decoded;
     next();
   });
 };
 
-// mongodb----------
-
+// MongoDB setup
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.g4e8qzr.mongodb.net/?retryWrites=true&w=majority`;
-
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
-});
+const client = new MongoClient(uri, { useUnifiedTopology: true });
 
 async function run() {
   try {
-    // Connect the client to the server (optional starting in v4.7)
+    // Connect to the MongoDB server
     await client.connect();
-    // -----------------------------------------------------
+
+    // Get reference to the "users" and "classes" collections
     const usersCollection = client.db('visualDb').collection('users');
     const classCollection = client.db('visualDb').collection('classes');
 
+    // Generate JWT token
     app.post('/jwt', (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_SECRET_TOKEN, {
@@ -62,17 +55,15 @@ async function run() {
       res.send({ token });
     });
 
-    // ---------------users related api
-
-    // get users from database
+    // Get all users
     app.get('/users', async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
 
+    // Create a new user
     app.post('/users', async (req, res) => {
       const user = req.body;
-      console.log(user);
       const query = { email: user.email };
       const existingUser = await usersCollection.findOne(query);
       if (existingUser) {
@@ -82,11 +73,12 @@ async function run() {
       res.send(result);
     });
 
+    // Check if user is an instructor
     app.get('/users/instructor/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
 
       if (req.decoded.email !== email) {
-        res.send({ instructor: false });
+        return res.send({ instructor: false });
       }
 
       const query = { email: email };
@@ -95,6 +87,7 @@ async function run() {
       res.send(result);
     });
 
+    // Update user role to instructor
     app.patch('/users/instructor/:id', async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -108,11 +101,12 @@ async function run() {
       res.send(result);
     });
 
+    // Check if user is an admin
     app.get('/users/admin/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
 
       if (req.decoded.email !== email) {
-        res.send({ admin: false });
+        return res.send({ admin: false });
       }
 
       const query = { email: email };
@@ -121,6 +115,7 @@ async function run() {
       res.send(result);
     });
 
+    // Update user role to admin
     app.patch('/users/admin/:id', async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -134,6 +129,7 @@ async function run() {
       res.send(result);
     });
 
+    // Delete a user
     app.delete('/users/:id', async (req, res) => {
       const id = req.params.id;
 
@@ -152,31 +148,19 @@ async function run() {
       }
     });
 
-    // // classes related api
-
+    // Get all classes
     app.get('/classes', async (req, res) => {
       const classes = await classCollection.find({}).toArray();
       res.send(classes);
     });
 
-    // -----------------------------------------------------
-
-    // Send a ping to confirm a successful connection
-    await client.db('admin').command({ ping: 1 });
-    console.log(
-      'Pinged your deployment. You successfully connected to MongoDB!'
-    );
-  } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
+    // Start the server
+    app.listen(port, () => {
+      console.log(`Server is running on port ${port}`);
+    });
+  } catch (error) {
+    console.error('Error:', error);
   }
 }
+
 run().catch(console.dir);
-
-app.get('/', (req, res) => {
-  res.send('Visual Learning Is running....');
-});
-
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
