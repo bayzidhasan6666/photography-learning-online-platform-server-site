@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const app = express();
@@ -47,7 +47,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
+    // Connect the client to the server (optional starting in v4.7)
     await client.connect();
     // -----------------------------------------------------
     const usersCollection = client.db('visualDb').collection('users');
@@ -88,10 +88,52 @@ async function run() {
       const query = { email: user.email };
       const existingUser = await usersCollection.findOne(query);
       if (existingUser) {
-        return res.send({ message: 'user already exists' });
+        return res.send({ message: 'User already exists' });
       }
       const result = await usersCollection.insertOne(user);
       res.send(result);
+    });
+
+    app.patch('/users/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: 'instructor',
+        },
+      };
+
+      const result = await usersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    app.patch('/users/admin/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: 'admin',
+        },
+      };
+
+      const result = await usersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    app.delete('/users/:id', async (req, res) => {
+      const id = req.params.id;
+
+      try {
+        const result = await usersCollection.deleteOne({ _id: ObjectId(id) });
+        if (result.deletedCount === 1) {
+          res.send({ message: 'User deleted successfully' });
+        } else {
+          res.send({ message: 'User not found' });
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send({ error: true, message: 'Internal Server Error' });
+      }
     });
 
     // // classes related api
