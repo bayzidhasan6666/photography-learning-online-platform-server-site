@@ -161,6 +161,91 @@ async function run() {
       res.send(result);
     });
 
+    // Update a class
+    app.patch('/classes/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: req.body,
+      };
+
+      const result = await classCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    // Delete a class
+    app.delete('/classes/:id', async (req, res) => {
+      const id = req.params.id;
+
+      try {
+        const result = await classCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        if (result.deletedCount === 1) {
+          res.send({ message: 'Class deleted successfully' });
+        } else {
+          res.send({ message: 'Class not found' });
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send({ error: true, message: 'Internal Server Error' });
+      }
+    });
+
+    // ------------manage allClasses by admin
+
+    // Approve a class
+    app.patch('/classes/:id/approve', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: { status: 'approved' },
+      };
+
+      try {
+        const result = await classCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send({ error: true, message: 'Internal Server Error' });
+      }
+    });
+
+    // Deny a class
+    app.patch('/classes/:id/deny', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: { status: 'denied' },
+      };
+
+      try {
+        const result = await classCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send({ error: true, message: 'Internal Server Error' });
+      }
+    });
+
+    // Send feedback for a class
+    app.patch('/classes/:id/feedback', async (req, res) => {
+      const id = req.params.id;
+      const { feedback } = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: { feedback },
+      };
+
+      try {
+        const result = await classCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send({ error: true, message: 'Internal Server Error' });
+      }
+    });
+
     // Root URL handler
     app.get('/', (req, res) => {
       res.send('Welcome to Visual Learning.........');
