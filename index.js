@@ -154,6 +154,18 @@ async function run() {
       res.send(classes);
     });
 
+    // Create a new class
+    app.post('/classes', async (req, res) => {
+      const newClass = req.body;
+      const result = await classCollection.insertOne(newClass);
+      res.send(result);
+    });
+
+    // Root URL handler
+    app.get('/', (req, res) => {
+      res.send('Welcome to Visual Learning.........');
+    });
+
     // Start the server
     app.listen(port, () => {
       console.log(`Server is running on port ${port}`);
