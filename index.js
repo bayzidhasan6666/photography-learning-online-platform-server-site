@@ -44,6 +44,9 @@ async function run() {
     // Get reference to the "users" and "classes" collections
     const usersCollection = client.db('visualDb').collection('users');
     const classCollection = client.db('visualDb').collection('classes');
+    const selectedClassCollection = client
+      .db('visualDb')
+      .collection('selectedClasses');
 
     // Generate JWT token
     app.post('/jwt', (req, res) => {
@@ -243,6 +246,46 @@ async function run() {
       } catch (error) {
         console.error('Error:', error);
         res.status(500).send({ error: true, message: 'Internal Server Error' });
+      }
+    });
+
+    // Selected Class Collection-------------
+    app.post('/selectedClass', async (req, res) => {
+      const cart = req.body;
+      console.log(cart);
+      const result = await selectedClassCollection.insertOne(cart);
+      res.send(result);
+    });
+
+    // get  Selected Class Collection-------------
+    app.get('/selectedClass', async (req, res) => {
+      try {
+        const selectedClasses = await selectedClassCollection
+          .find({})
+          .toArray();
+        res.send(selectedClasses);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send('Error occurred while fetching selected classes');
+      }
+    });
+
+    // DELETE endpoint to remove a selected class
+    app.delete('/selectedClass/:id', async (req, res) => {
+      const classId = req.params.id;
+
+      try {
+        const result = await selectedClassCollection.deleteOne({
+          _id: new ObjectId(classId),
+        });
+        if (result.deletedCount === 1) {
+          res.status(200).send('Selected class deleted successfully');
+        } else {
+          res.status(404).send('Selected class not found');
+        }
+      } catch (error) {
+        console.error('Error deleting selected class', error);
+        res.status(500).send('Error deleting selected class');
       }
     });
 
