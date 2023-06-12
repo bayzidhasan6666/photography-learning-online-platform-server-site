@@ -3,6 +3,7 @@ const cors = require('cors');
 const { MongoClient, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY);
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -44,6 +45,7 @@ async function run() {
     // Get reference to the "users" and "classes" collections
     const usersCollection = client.db('visualDb').collection('users');
     const classCollection = client.db('visualDb').collection('classes');
+    const paymentCollection = client.db('visualDb').collection('payments');
     const selectedClassCollection = client
       .db('visualDb')
       .collection('selectedClasses');
@@ -58,11 +60,39 @@ async function run() {
       res.send({ token });
     });
 
+    const verifyInstructor = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== 'instructor') {
+        return res
+          .status(403)
+          .send({ error: true, message: 'forbidden message' });
+      }
+      next();
+    };
+
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== 'admin') {
+        return res
+          .status(403)
+          .send({ error: true, message: 'forbidden message' });
+      }
+      next();
+    };
+
     // Get all users
-    app.get('/users', async (req, res) => {
-      const result = await usersCollection.find().toArray();
-      res.send(result);
-    });
+    app.get(
+      '/users',
+
+      async (req, res) => {
+        const result = await usersCollection.find().toArray();
+        res.send(result);
+      }
+    );
 
     // Create a new user
     app.post('/users', async (req, res) => {
@@ -257,16 +287,38 @@ async function run() {
       res.send(result);
     });
 
-    // get  Selected Class Collection-------------
+    // get  Selected Classes by Email -------------
     app.get('/selectedClass', async (req, res) => {
       try {
+        const { email } = req.query;
+
         const selectedClasses = await selectedClassCollection
-          .find({})
+          .find({ email: email })
           .toArray();
+
         res.send(selectedClasses);
       } catch (error) {
         console.error(error);
         res.status(500).send('Error occurred while fetching selected classes');
+      }
+    });
+
+    app.get('/selectedClass/:id', async (req, res) => {
+      const { id } = req.params;
+
+      try {
+        const selectedClass = await selectedClassCollection.findOne({
+          _id: ObjectId(id),
+        });
+
+        if (selectedClass) {
+          res.json(selectedClass);
+        } else {
+          res.status(404).json({ error: 'Selected class not found' });
+        }
+      } catch (error) {
+        console.error('Error retrieving selected class:', error);
+        res.status(500).json({ error: 'Internal server error' });
       }
     });
 
@@ -287,6 +339,42 @@ async function run() {
         console.error('Error deleting selected class', error);
         res.status(500).send('Error deleting selected class');
       }
+    });
+
+    // --------------Payment api
+    // create payment intent
+    app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+
+      try {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount,
+          currency: 'usd',
+          payment_method_types: ['card'],
+        });
+
+        // Construct the client secret in the required format
+        const clientSecret = `${paymentIntent.id}_secret_${paymentIntent.client_secret}`;
+
+        res.send({
+          clientSecret: clientSecret,
+        });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    app.post('/payments', verifyJWT, async (req, res) => {
+      const payment = req.body;
+      const insertResult = await paymentCollection.insertOne(payment);
+
+      const query = {
+        _id: { $in: payment.classId.map((id) => new ObjectId(id)) },
+      };
+      const deleteResult = await classCollection.deleteMany(query);
+
+      res.send({ insertResult, deleteResult });
     });
 
     // Root URL handler
