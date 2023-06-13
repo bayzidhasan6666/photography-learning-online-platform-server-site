@@ -308,7 +308,7 @@ async function run() {
 
       try {
         const selectedClass = await selectedClassCollection.findOne({
-          _id: ObjectId(id),
+          _id: new ObjectId(id),
         });
 
         if (selectedClass) {
@@ -341,40 +341,25 @@ async function run() {
       }
     });
 
-    // --------------Payment api
     // create payment intent
     app.post('/create-payment-intent', verifyJWT, async (req, res) => {
       const { price } = req.body;
-      const amount = parseInt(price * 100);
-
-      try {
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: amount,
-          currency: 'usd',
-          payment_method_types: ['card'],
-        });
-
-        // Construct the client secret in the required format
-        const clientSecret = `${paymentIntent.id}_secret_${paymentIntent.client_secret}`;
-
-        res.send({
-          clientSecret: clientSecret,
-        });
-      } catch (error) {
-        res.status(500).json({ error: error.message });
-      }
+      const amount = price;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: 'usd',
+        payment_method_types: ['card'],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
     });
 
-    app.post('/payments', verifyJWT, async (req, res) => {
+    // payment collection
+    app.post('/payments', async (req, res) => {
       const payment = req.body;
-      const insertResult = await paymentCollection.insertOne(payment);
-
-      const query = {
-        _id: { $in: payment.classId.map((id) => new ObjectId(id)) },
-      };
-      const deleteResult = await classCollection.deleteMany(query);
-
-      res.send({ insertResult, deleteResult });
+      const result = await paymentCollection.insertOne(payment);
+      res.send(result);
     });
 
     // Root URL handler
