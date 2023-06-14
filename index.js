@@ -205,6 +205,23 @@ async function run() {
       const result = await classCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
+    // Assuming you're using Express.js
+    app.put('/classes/:id', (req, res) => {
+      const classId = req.params.id;
+      const updatedClass = req.body;
+
+      // Update the class details in your database or data source
+      // Here, you can use your preferred method to update the class
+      // For example, if you're using MongoDB with Mongoose, it would look like:
+      classCollection.findByIdAndUpdate(classId, updatedClass, { new: true })
+        .then((updatedClass) => {
+          res.status(200).json(updatedClass);
+        })
+        .catch((error) => {
+          console.error(error);
+          res.status(500).json({ error: 'Failed to update class details.' });
+        });
+    });
 
     // Delete a class
     app.delete('/classes/:id', async (req, res) => {
@@ -356,6 +373,12 @@ async function run() {
     });
 
     // payment collection
+
+    app.get('/payments', async (req, res) => {
+      const payments = await paymentCollection.find({}).toArray();
+      res.send(payments);
+    });
+
     app.post('/payments', async (req, res) => {
       const payment = req.body;
       const result = await paymentCollection.insertOne(payment);
